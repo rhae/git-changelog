@@ -16,6 +16,7 @@ from git_changelog.commit import (
     Commit,
     CommitConvention,
     ConventionalCommitConvention,
+    File,
 )
 from git_changelog.providers import Bitbucket, GitHub, GitLab, ProviderRefParser
 from git_changelog.versioning import ParsedVersion, bump_pep440, bump_semver, parse_pep440, parse_semver
@@ -172,7 +173,7 @@ class Changelog:
 
     MARKER: ClassVar[str] = "--GIT-CHANGELOG MARKER--"
     FORMAT: ClassVar[str] = (
-        r"%H%n"  # commit commit_hash
+        r"commit %H%n"  # commit commit_hash
         r"%an%n"  # author name
         r"%ae%n"  # author email
         r"%ad%n"  # author date
@@ -334,16 +335,18 @@ class Changelog:
         Returns:
             The output of the `git log` command, with a particular format.
         """
+        git_args = ["--date=unix", "--numstat", "--raw", "--format=" + self.FORMAT]
         if self.filter_commits:
+            git_args += [self.filter_commits]
             try:
-                return self.run_git("log", "--date=unix", "--format=" + self.FORMAT, self.filter_commits)
+                return self.run_git("log", *git_args)
             except CalledProcessError as e:
                 raise ValueError(
                     f"An error ocurred. Maybe the provided git-log revision-range is not valid: '{self.filter_commits}'",
                 ) from e
 
         # No revision-range provided. Call normally
-        return self.run_git("log", "--date=unix", "--format=" + self.FORMAT)
+        return self.run_git("log", *git_args)
 
     def parse_commits(self) -> list[Commit]:
         """Parse the output of 'git log' into a list of commits.
@@ -368,9 +371,33 @@ class Changelog:
                 body.append(lines[pos + nbl_index].strip("\r"))
                 nbl_index += 1
 
+            cur_pos = pos + nbl_index + 1
+            files :[File]= []
+            idx_back = 0
+            while cur_pos < size:
+                cur_line = lines[cur_pos].strip("\r")
+
+                if len(cur_line) > 0:
+                    if cur_line.startswith("commit"):
+                        break
+                    
+                    if cur_line[0] == ":":
+                        idx_back += 1
+                    else:
+                        try:
+                            status = lines[cur_pos - idx_back].split()[4]
+                            added, deleted, name = cur_line.split("\t")
+                            files.append(File(name, status[0], added, deleted))
+                        except Exception as e:
+                            print(cur_line)
+                            print(e)
+
+                cur_pos += 1
+                nbl_index += 1
+
             # Build commit object.
             commit = Commit(
-                commit_hash=lines[pos],
+                commit_hash=lines[pos][7:],
                 author_name=lines[pos + 1],
                 author_email=lines[pos + 2],
                 author_date=lines[pos + 3],
@@ -382,6 +409,7 @@ class Changelog:
                 commits_map=commits_map,
                 subject=lines[pos + 9],
                 body=body,
+                files=files,
                 parse_trailers=self.parse_trailers,
                 version_parser=self.version_parser,
             )

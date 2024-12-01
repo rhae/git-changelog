@@ -7,6 +7,7 @@ import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from dataclasses import dataclass
 from contextlib import suppress
 from datetime import datetime, timezone
 from re import Pattern
@@ -118,6 +119,13 @@ class _Trailers(list[tuple[str, str]]):
             return
         super().__setitem__(key, value)  # type: ignore[assignment,index]
 
+@dataclass
+class File:
+    """A class to represent a changed file in a commit"""
+    name: str
+    status: str
+    added_lines: int
+    deleted_lines: int
 
 class Commit:
     """A class to represent a commit."""
@@ -134,6 +142,7 @@ class Commit:
         refs: str = "",
         subject: str = "",
         body: list[str] | None = None,
+        files: list[File] | None = None,
         url: str = "",
         *,
         parse_trailers: bool = False,
@@ -154,6 +163,7 @@ class Commit:
             refs: The commit refs.
             subject: The commit message subject.
             body: The commit message body.
+            files: The changed files.
             url: The commit URL.
             parse_trailers: Whether to parse Git trailers.
         """
@@ -175,6 +185,7 @@ class Commit:
         self.committer_date: datetime = committer_date
         self.subject: str = subject
         self.body: list[str] = _clean_body(body) if body else []
+        self.files: list[str] = files
         self.url: str = url
 
         tag = ""
