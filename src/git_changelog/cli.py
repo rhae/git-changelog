@@ -619,6 +619,8 @@ def build_and_render(
         versioning=versioning,
     )
 
+    changelog.now = datetime.now()
+
     # remove empty versions from changelog data
     if omit_empty_versions:
         section_set = set(changelog.sections)
