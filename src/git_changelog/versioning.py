@@ -606,7 +606,10 @@ class PEP440Version(packaging_version.Version, ParsedVersion):  # type: ignore[m
 
 
 def version_prefix(version: str) -> tuple[str, str]:
-    """Return a version and its optional `v` prefix.
+    """Return a version and its optional `v`, or 'release/v' or 'whatever/v'  prefix.
+
+    Additionally replace an underscore by a dash in the version and also change to lower case.
+    This allows a variant of a version like v732.10.201_RC1 to be parsed.
 
     Arguments:
         version: The full version.
@@ -616,9 +619,15 @@ def version_prefix(version: str) -> tuple[str, str]:
         prefix: The version prefix.
     """
     prefix = ""
-    if version[0] == "v":
-        prefix = "v"
+    if version[0].lower() == "v":
+        prefix = version[0]
         version = version[1:]
+    else:
+        parts = version.split("/")
+        last = parts[-1]
+        if last[0].lower() == "v":
+            prefix = "/".join(parts[:-1]) + "/" + last[0]
+            version = last[1:].replace("_", "-").lower()
     return version, prefix
 
 
