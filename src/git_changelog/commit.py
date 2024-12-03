@@ -7,8 +7,8 @@ import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass
 from contextlib import suppress
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from re import Pattern
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, SupportsIndex, overload
@@ -119,13 +119,24 @@ class _Trailers(list[tuple[str, str]]):
             return
         super().__setitem__(key, value)  # type: ignore[assignment,index]
 
+
 @dataclass
 class File:
     """A class to represent a changed file in a commit"""
+
     name: str
     status: str
     added_lines: int
     deleted_lines: int
+
+
+@dataclass
+class Branch:
+    name: str
+    date: datetime
+    hash: str
+    is_current: bool = field(default=False)
+
 
 class Commit:
     """A class to represent a commit."""

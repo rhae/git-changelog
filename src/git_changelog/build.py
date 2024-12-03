@@ -13,6 +13,7 @@ from urllib.parse import urlsplit, urlunsplit
 from git_changelog.commit import (
     AngularConvention,
     BasicConvention,
+    Branch,
     Commit,
     CommitConvention,
     ConventionalCommitConvention,
@@ -245,6 +246,9 @@ class Changelog:
             self.remote_url: str = remote_url
         self.provider = provider
 
+        self.branch_list = self._list_branches()
+        self.branch = self._get_current_branch()
+
         # set convention
         if isinstance(convention, str):
             try:
@@ -305,6 +309,8 @@ class Changelog:
         Returns:
             The git command output.
         """
+        # cli = " ".join(["git", *args])
+        # print(f"{cli}")
         return check_output(["git", *args], cwd=self.repository).decode("utf8")  # noqa: S603,S607
 
     def get_remote_url(self) -> str:
@@ -372,7 +378,7 @@ class Changelog:
                 nbl_index += 1
 
             cur_pos = pos + nbl_index + 1
-            files :[File]= []
+            files: [File] = []
             idx_back = 0
             while cur_pos < size:
                 cur_line = lines[cur_pos].strip("\r")
@@ -380,7 +386,7 @@ class Changelog:
                 if len(cur_line) > 0:
                     if cur_line.startswith("commit"):
                         break
-                    
+
                     if cur_line[0] == ":":
                         idx_back += 1
                     else:
@@ -431,6 +437,31 @@ class Changelog:
             commits_map[commit.hash] = commit
 
         return list(commits_map.values())
+
+    def _get_current_branch(self) -> Branch | None:
+        """Return current branch.
+
+        Returns:
+            branch: The current branch name
+        """
+        for branch in self.branch_list:
+            if branch.is_current:
+                return branch
+
+        return None
+
+    def _list_branches(self) -> [Branch]:
+        FIELDS = ["HEAD", "refname:strip=2", "creatordate:unix", "objectname:short"]
+        fields = [f"%({x})" for x in FIELDS]
+        _FORMAT = "\t".join(fields)
+        branch_list: [Branch] = []
+        branches = self.run_git("branch", "--list", f"--format={_FORMAT}")
+        for branch in branches.splitlines():
+            head, name, unix_time, id = branch.split()
+            date = datetime.datetime.fromtimestamp(int(unix_time))
+            branch_list += [Branch(name, date, id, head[0] == "*")]
+
+        return branch_list
 
     def _group_commits_by_version(self) -> tuple[list[Version], dict[str, Version]]:
         """Group commits into versions.
