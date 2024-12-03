@@ -632,7 +632,7 @@ def build_and_render(
     # render new entries in-place
     if in_place:
         # read current changelog lines
-        with open(output) as changelog_file:  # type: ignore[arg-type]
+        with open(output, errors="ignore") as changelog_file:  # type: ignore[arg-type]
             lines = changelog_file.read().splitlines()
 
         # prepare version regex and marker line
@@ -687,7 +687,7 @@ def build_and_render(
         if output is sys.stdout:
             sys.stdout.write(rendered)
         else:
-            with open(output, "w") as stream:  # type: ignore[arg-type]
+            with open(output, "w", errors="ignore") as stream:  # type: ignore[arg-type]
                 stream.write(rendered)
 
     return changelog, rendered
